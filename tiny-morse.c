@@ -1,14 +1,15 @@
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 
 #define MORSE_CLOCK_MS 250
 
-#define MORSE_DDR  DDRD
-#define MORSE_PORT PORTD
-#define MORSE_BIT  PD0
+#define MORSE_DDR	DDRD
+#define MORSE_PORT	PORTD
+#define MORSE_BIT	PD0
 
-static const char msg[] = "SOS";
+#define EEPROM_MSG_START	0
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
 #include "codes.h"
@@ -49,11 +50,12 @@ static void morse_char(char c) {
 }
 
 static void morse(void) {
-	const char *m = msg;
-	while ( *m ) {
-		morse_char(*m);
+	uint8_t i = EEPROM_MSG_START;
+	char m = 0;
+	while ( m = eeprom_read_byte(i++) ) {
+		if (m == '\n') break;
+		morse_char(m);
 		wait(MORSE_CLOCK_MS*2);
-		m++;
 	}
 	wait(MORSE_CLOCK_MS*3);
 }
