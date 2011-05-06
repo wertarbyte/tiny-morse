@@ -1,11 +1,11 @@
 {
 	A[++I]=$1;
-	print "const char CODE_"I"[] PROGMEM = \""$2"\";"
+	print "const char CODE_"I"[] PROGMEM = \""$1$2"\";"
 }
 END {
-	print "static const struct { const char c; PGM_P seq; } codes[] = {";
+	print "static PGM_P codes[] PROGMEM = {";
 	for (I in A) {
-		print "{ '" A[I] "', CODE_"I" },";
+		print "CODE_"I",";
 	};
 	print "};";
 }

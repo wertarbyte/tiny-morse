@@ -5,9 +5,9 @@
 
 #define MORSE_CLOCK_MS 250
 
-#define MORSE_DDR	DDRD
-#define MORSE_PORT	PORTD
-#define MORSE_BIT	PD0
+#define MORSE_DDR	DDRB
+#define MORSE_PORT	PORTB
+#define MORSE_BIT	PB3
 
 #define EEPROM_MSG_START	0
 
@@ -24,24 +24,24 @@ static void flash(unsigned int ms) {
 	MORSE_PORT &= ~(1<<MORSE_BIT);
 }
 
-// buffer used to store morse code sequences retrieved from flash
-static char buf[10] = {0};
-static const char *lookup_char(char c) {
-	for (uint8_t i=0; i<ELEMS(codes); i++) {
-		if (codes[i].c == c) {
-			return strcpy_P(buf, codes[i].seq);
+static PGM_P lookup_char(char c) {
+	for (int i=0; i<ELEMS(codes); i++) {
+		PGM_P p;
+		memcpy_P(&p, &codes[i], sizeof(PGM_P));
+		if (pgm_read_byte(p) == c) {
+			return p+1;
 		}
 	}
-	buf[0] = 0;
-	return buf;
+	return 0;
 }
 
 static void morse_char(char c) {
-	const char *seq = lookup_char(c);
-	while (*seq) {
-		if (*seq == '-') {
-			flash(MORSE_CLOCK_MS*2);
-		} else if (*seq == '.') {
+	PGM_P seq = lookup_char(c);
+	char s = 0;
+	while (seq && (s = pgm_read_byte(seq))) {
+		if (s == '-') {
+			flash(MORSE_CLOCK_MS*3);
+		} else if (s == '.') {
 			flash(MORSE_CLOCK_MS*1);
 		}
 		wait(MORSE_CLOCK_MS);
@@ -49,7 +49,15 @@ static void morse_char(char c) {
 	}
 }
 
-static void morse(void) {
+static void morse_string(const char *str) {
+	while ( *str ) {
+		morse_char(*str);
+		str++;
+	}
+	wait(MORSE_CLOCK_MS*2);
+}
+
+static void morse_eeprom(void) {
 	uint8_t i = EEPROM_MSG_START;
 	char m = 0;
 	while ( m = eeprom_read_byte(i++) ) {
@@ -57,14 +65,14 @@ static void morse(void) {
 		morse_char(m);
 		wait(MORSE_CLOCK_MS*2);
 	}
-	wait(MORSE_CLOCK_MS*3);
 }
 
 int main(void) {
 	MORSE_DDR |= 1<<MORSE_BIT;
 
 	while(1) {
-		morse();
+		morse_eeprom();
+		wait(2000);
 	}
 	return 0;
 }
