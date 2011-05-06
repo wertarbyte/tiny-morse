@@ -35,8 +35,7 @@ static PGM_P lookup_char(char c) {
 	return 0;
 }
 
-static void morse_char(char c) {
-	PGM_P seq = lookup_char(c);
+static void morse_sequence(PGM_P seq) {
 	char s = 0;
 	while (seq && (s = pgm_read_byte(seq))) {
 		if (s == '-') {
@@ -47,6 +46,11 @@ static void morse_char(char c) {
 		wait(MORSE_CLOCK_MS);
 		seq++;
 	}
+}
+
+static void morse_char(char c) {
+	PGM_P seq = lookup_char(c);
+	morse_sequence(seq);
 }
 
 static void morse_string(const char *str) {
@@ -67,11 +71,19 @@ static void morse_eeprom(void) {
 	}
 }
 
+static void morse(void) {
+	morse_sequence( CODE_STARTMSG );
+	wait(500);
+	morse_eeprom();
+	wait(500);
+	morse_sequence( CODE_ENDMSG );
+}
+
 int main(void) {
 	MORSE_DDR |= 1<<MORSE_BIT;
 
 	while(1) {
-		morse_eeprom();
+		morse();
 		wait(2000);
 	}
 	return 0;
