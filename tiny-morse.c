@@ -9,6 +9,10 @@
 #define MORSE_PORT	PORTB
 #define MORSE_BIT	PB3
 
+#define TRIGGER_DDR	DDRB
+#define TRIGGER_PORT	PINB
+#define TRIGGER_BIT	PB0
+
 #define EEPROM_MSG_START	0
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
@@ -81,10 +85,13 @@ static void morse(void) {
 
 int main(void) {
 	MORSE_DDR |= 1<<MORSE_BIT;
+	TRIGGER_DDR |= 1<<TRIGGER_BIT;
 
 	while(1) {
-		morse();
-		wait(2000);
+		if (TRIGGER_PORT & 1<<TRIGGER_BIT) {
+			morse();
+			wait(2000);
+		}
 	}
 	return 0;
 }
