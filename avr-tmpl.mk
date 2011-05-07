@@ -304,11 +304,11 @@ OBJ = $(SRC:.c=.o) $(ASRC:.S=.o)
 LST = $(SRC:.c=.lst) $(ASRC:.S=.lst) 
 
 # Compiler flags to generate dependency files.
-GENDEPFLAGS = -MD -MP -MF .dep/$(@F).d
+MAKEDEPEND = $(CC) -M -MG $(CPPFLAGS) -o $*.d $<
 
 # Combine all necessary flags and optional flags.
 # Add target processor to flags.
-ALL_CFLAGS = -mmcu=$(MCU) -I. $(CFLAGS) $(GENDEPFLAGS)
+ALL_CFLAGS = -mmcu=$(MCU) -I. $(CFLAGS)
 ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
 
 # Default target.
@@ -436,6 +436,8 @@ extcoff: $(TARGET).elf
 	@echo $(MSG_LINKING) $@
 	$(CC) $(ALL_CFLAGS) $^ --output $@ $(LDFLAGS)
 
+%.d : %.c
+	$(MAKEDEPEND)
 
 # Compile: create object files from C source files.
 %.o : %.c
@@ -481,11 +483,10 @@ clean_list :
 	$(REMOVE) $(LST)
 	$(REMOVE) $(SRC:.c=.s)
 	$(REMOVE) $(SRC:.c=.d)
-	$(REMOVE) .dep/*
 
 
 # Include the dependency files.
--include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)
+-include $(TARGET).d
 
 
 # Listing of phony targets.
