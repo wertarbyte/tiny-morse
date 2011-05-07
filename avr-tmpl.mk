@@ -303,6 +303,9 @@ OBJ = $(SRC:.c=.o) $(ASRC:.S=.o)
 # Define all listing files.
 LST = $(SRC:.c=.lst) $(ASRC:.S=.lst) 
 
+# Additional generated files to be removed on "clean"
+GENERATED += ""
+
 # Compiler flags to generate dependency files.
 MAKEDEPEND = $(CC) -M -MG $(CPPFLAGS) -o $*.d $<
 
@@ -483,6 +486,7 @@ clean_list :
 	$(REMOVE) $(LST)
 	$(REMOVE) $(SRC:.c=.s)
 	$(REMOVE) $(SRC:.c=.d)
+	$(REMOVE) $(GENERATED)
 
 
 # Include the dependency files.
