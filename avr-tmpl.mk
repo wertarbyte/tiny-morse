@@ -490,7 +490,7 @@ clean_list :
 
 
 # Include the dependency files.
--include $(TARGET).d
+-include $(SRC:.c=.d)
 
 
 # Listing of phony targets.
