@@ -78,9 +78,9 @@ static void morse_string(const char *str) {
 }
 
 static void morse_eeprom(void) {
-	uint8_t i = EEPROM_MSG_START;
+	uint8_t *i = (uint8_t*) EEPROM_MSG_START;
 	char m = 0;
-	while ( m = eeprom_read_byte(i++) ) {
+	while ( (m = eeprom_read_byte(i++)) != 0 ) {
 		if (m == '\n') break;
 		morse_char(m);
 		wait(MORSE_LETTER_PAUSE);
