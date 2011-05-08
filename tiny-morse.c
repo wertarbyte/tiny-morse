@@ -135,7 +135,6 @@ int main(void) {
 	while(1) {
 		if (TRIGGER_PORT & 1<<TRIGGER_BIT) {
 			morse();
-			wait(2000);
 		}
 	}
 	return 0;
