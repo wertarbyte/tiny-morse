@@ -18,6 +18,13 @@
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
 #include "codes.h"
 
+// morse code durations
+#define MORSE_DIT MORSE_CLOCK_MS
+#define MORSE_DAH ((MORSE_DIT)*3)
+#define MORSE_SYMBOL_PAUSE ((MORSE_DIT))
+#define MORSE_LETTER_PAUSE ((MORSE_DAH))
+#define MORSE_WORD_PAUSE ((MORSE_DIT)*7)
+
 static void wait(int ms) {
 	while (ms--) _delay_ms(1);
 }
@@ -43,26 +50,30 @@ static void morse_sequence(PGM_P seq) {
 	char s = 0;
 	while (seq && (s = pgm_read_byte(seq))) {
 		if (s == '-') {
-			flash(MORSE_CLOCK_MS*3);
+			flash(MORSE_DAH);
 		} else if (s == '.') {
-			flash(MORSE_CLOCK_MS*1);
+			flash(MORSE_DIT);
 		}
-		wait(MORSE_CLOCK_MS);
+		wait(MORSE_SYMBOL_PAUSE);
 		seq++;
 	}
 }
 
 static void morse_char(char c) {
-	PGM_P seq = lookup_char(c);
-	morse_sequence(seq);
+	if (c != ' ') {
+		PGM_P seq = lookup_char(c);
+		morse_sequence(seq);
+	} else {
+		wait(MORSE_WORD_PAUSE);
+	}
 }
 
 static void morse_string(const char *str) {
 	while ( *str ) {
 		morse_char(*str);
+		wait(MORSE_LETTER_PAUSE);
 		str++;
 	}
-	wait(MORSE_CLOCK_MS*2);
 }
 
 static void morse_eeprom(void) {
@@ -71,15 +82,15 @@ static void morse_eeprom(void) {
 	while ( m = eeprom_read_byte(i++) ) {
 		if (m == '\n') break;
 		morse_char(m);
-		wait(MORSE_CLOCK_MS*2);
+		wait(MORSE_LETTER_PAUSE);
 	}
 }
 
 static void morse(void) {
 	morse_sequence( CODE_STARTMSG );
-	wait(500);
+	wait(MORSE_DAH*2);
 	morse_eeprom();
-	wait(500);
+	wait(MORSE_DAH*2);
 	morse_sequence( CODE_ENDMSG );
 }
 
