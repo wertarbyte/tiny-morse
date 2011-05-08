@@ -17,6 +17,23 @@
 #define EEPROM_MSG_START	1
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
+
+struct sequence {
+	// number of morse code symbols
+	const uint8_t length;
+	// bitmask of the code, 1=DIT, 0=DAH
+	const uint8_t code;
+};
+
+struct morse {
+	const char letter;
+	const struct sequence seq;
+};
+
+static const struct sequence CODE_EMPTY    = { 0, 0 };
+static const struct sequence CODE_STARTMSG = { 5, 0b10101 };
+static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
+
 #include "codes.h"
 
 // morse code durations
@@ -36,34 +53,34 @@ static void flash(unsigned int ms) {
 	MORSE_PORT &= ~(1<<MORSE_BIT);
 }
 
-static PGM_P lookup_char(char c) {
+static const struct sequence lookup_char(char c) {
+	struct morse buffer;
 	for (int i=0; i<ELEMS(codes); i++) {
-		PGM_P p;
-		memcpy_P(&p, &codes[i], sizeof(PGM_P));
-		if (pgm_read_byte(p) == c) {
-			return p+1;
+		memcpy_P( &buffer, &codes[i], sizeof(struct morse) );
+		if (buffer.letter == c) {
+			return buffer.seq;
 		}
 	}
-	return 0;
+	return CODE_EMPTY;
 }
 
-static void morse_sequence(PGM_P seq) {
-	char s = 0;
-	while (seq && (s = pgm_read_byte(seq))) {
-		if (s == '-') {
-			flash(MORSE_DAH);
-		} else if (s == '.') {
+static void morse_sequence(struct sequence s) {
+	uint8_t l = s.length;
+	while (l > 0) {
+		if (s.code & 1<<(l-1)) {
 			flash(MORSE_DIT);
+		} else {
+			flash(MORSE_DAH);
 		}
 		wait(MORSE_SYMBOL_PAUSE);
-		seq++;
+		l--;
 	}
 }
 
 static void morse_char(char c) {
 	if (c != ' ') {
-		PGM_P seq = lookup_char(c);
-		morse_sequence(seq);
+		const struct sequence s = lookup_char(c);
+		morse_sequence(s);
 	} else {
 		wait(MORSE_WORD_PAUSE);
 	}

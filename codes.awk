@@ -1,15 +1,13 @@
 BEGIN {
-	print "const char CODE_STARTMSG[] PROGMEM = \"-.-.-\";"
-	print "const char CODE_ENDMSG[] PROGMEM = \".-.-.\";"
+	print "static struct morse codes[] PROGMEM = {";
 }
 {
-	A[++I]=$1;
-	print "const char CODE_"I"[] PROGMEM = \""$1$2"\";"
+	gsub("'", "\\'", $1);
+	bitmask = $2;
+	gsub("-", "0", bitmask);
+	gsub("[.]", "1", bitmask);
+	print "{'"$1"', { "length($2)", 0b"bitmask"} },";
 }
 END {
-	print "static PGM_P codes[] PROGMEM = {";
-	for (I in A) {
-		print "CODE_"I",";
-	};
 	print "};";
 }
