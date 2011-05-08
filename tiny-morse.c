@@ -5,16 +5,16 @@
 
 #define MORSE_CLOCK_MS 250
 
-#define MORSE_DDR	DDRB
-#define MORSE_PORT	PORTB
-#define MORSE_BIT	PB3
+#define LED_DDR	DDRB
+#define LED_PORT PORTB
+#define LED_BIT	PB3
 
-#define TRIGGER_DDR	DDRB
-#define TRIGGER_PORT	PINB
-#define TRIGGER_BIT	PB0
+#define TRIGGER_DDR DDRB
+#define TRIGGER_PORT PINB
+#define TRIGGER_BIT PB0
 
-#define EEPROM_MORSE_PREAMBLE	0
-#define EEPROM_MSG_START	1
+#define EEPROM_LOC_USE_PREAMBLE	0
+#define EEPROM_LOC_MSG 1
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
 
@@ -32,20 +32,20 @@ static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
 #include "codes.h"
 
 // morse code durations
-#define MORSE_DIT MORSE_CLOCK_MS
-#define MORSE_DAH ((MORSE_DIT)*3)
-#define MORSE_SYMBOL_PAUSE ((MORSE_DIT))
-#define MORSE_LETTER_PAUSE ((MORSE_DAH))
-#define MORSE_WORD_PAUSE ((MORSE_DIT)*7)
+#define TIME_DIT MORSE_CLOCK_MS
+#define TIME_DAH (TIME_DIT*3)
+#define PAUSE_SYMBOL TIME_DIT
+#define PAUSE_LETTER TIME_DAH
+#define PAUSE_WORD (TIME_DIT*7)
 
 static void wait(int ms) {
 	while (ms--) _delay_ms(1);
 }
 
 static void flash(unsigned int ms) {
-	MORSE_PORT |= (1<<MORSE_BIT);
+	LED_PORT |= (1<<LED_BIT);
 	wait(ms);
-	MORSE_PORT &= ~(1<<MORSE_BIT);
+	LED_PORT &= ~(1<<LED_BIT);
 }
 
 static const struct sequence lookup_char(char c) {
@@ -73,11 +73,11 @@ static void morse_sequence(struct sequence s) {
 	uint8_t l = s.length;
 	while (l > 0) {
 		if (s.code & 1<<(l-1)) {
-			flash(MORSE_DIT);
+			flash(TIME_DIT);
 		} else {
-			flash(MORSE_DAH);
+			flash(TIME_DAH);
 		}
-		wait(MORSE_SYMBOL_PAUSE);
+		wait(PAUSE_SYMBOL);
 		l--;
 	}
 }
@@ -87,49 +87,49 @@ static void morse_char(char c) {
 		const struct sequence s = lookup_char(c);
 		morse_sequence(s);
 	} else {
-		wait(MORSE_WORD_PAUSE);
+		wait(PAUSE_WORD);
 	}
 }
 
 static void morse_string(const char *str) {
 	while ( *str ) {
 		morse_char(*str);
-		wait(MORSE_LETTER_PAUSE);
+		wait(PAUSE_LETTER);
 		str++;
 	}
 }
 
 static void morse_eeprom(void) {
-	uint8_t *i = (uint8_t*) EEPROM_MSG_START;
+	uint8_t *i = (uint8_t*) EEPROM_LOC_MSG;
 	char m = 0;
 	while ( (m = eeprom_read_byte(i++)) != 0 ) {
 		if (m == '\n') break;
 		morse_char(m);
-		wait(MORSE_LETTER_PAUSE);
+		wait(PAUSE_LETTER);
 	}
 }
 
 static uint8_t morse_preamble(void) {
-	return eeprom_read_byte(EEPROM_MORSE_PREAMBLE) == '1';
+	return eeprom_read_byte(EEPROM_LOC_USE_PREAMBLE) == '1';
 }
 
 static void morse(void) {
 	uint8_t preamble = morse_preamble();
 	if (preamble) {
 		morse_sequence( CODE_STARTMSG );
-		wait(MORSE_DAH*2);
+		wait(TIME_DAH*2);
 	}
 
 	morse_eeprom();
 
 	if (preamble) {
-		wait(MORSE_DAH*2);
+		wait(TIME_DAH*2);
 		morse_sequence( CODE_ENDMSG );
 	}
 }
 
 int main(void) {
-	MORSE_DDR |= 1<<MORSE_BIT;
+	LED_DDR |= 1<<LED_BIT;
 	TRIGGER_DDR |= 1<<TRIGGER_BIT;
 
 	while(1) {
