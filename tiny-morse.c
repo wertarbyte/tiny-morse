@@ -13,7 +13,8 @@
 #define TRIGGER_PORT	PINB
 #define TRIGGER_BIT	PB0
 
-#define EEPROM_MSG_START	0
+#define EEPROM_MORSE_PREAMBLE	0
+#define EEPROM_MSG_START	1
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
 #include "codes.h"
@@ -86,12 +87,23 @@ static void morse_eeprom(void) {
 	}
 }
 
+static uint8_t morse_preamble(void) {
+	return eeprom_read_byte(EEPROM_MORSE_PREAMBLE) == '1';
+}
+
 static void morse(void) {
-	morse_sequence( CODE_STARTMSG );
-	wait(MORSE_DAH*2);
+	uint8_t preamble = morse_preamble();
+	if (preamble) {
+		morse_sequence( CODE_STARTMSG );
+		wait(MORSE_DAH*2);
+	}
+
 	morse_eeprom();
-	wait(MORSE_DAH*2);
-	morse_sequence( CODE_ENDMSG );
+
+	if (preamble) {
+		wait(MORSE_DAH*2);
+		morse_sequence( CODE_ENDMSG );
+	}
 }
 
 int main(void) {
