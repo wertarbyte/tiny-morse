@@ -25,11 +25,6 @@ struct sequence {
 	const uint8_t code;
 };
 
-struct morse {
-	const char letter;
-	const struct sequence seq;
-};
-
 static const struct sequence CODE_EMPTY    = { 0, 0 };
 static const struct sequence CODE_STARTMSG = { 5, 0b10101 };
 static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
@@ -54,22 +49,21 @@ static void flash(unsigned int ms) {
 }
 
 static const struct sequence lookup_char(char c) {
-	struct morse buffer;
-	for (int i=0; i<ELEMS(codes); i++) {
-		memcpy_P( &buffer, &codes[i], sizeof(struct morse) );
-		if (buffer.letter == c) {
-			return buffer.seq;
-		}
+	struct sequence buffer;
+	int i = c-'!';
+	if (i < ELEMS(codes)) {
+		memcpy_P( &buffer, &codes[i], sizeof(struct sequence) );
+		return buffer;
 	}
 	return CODE_EMPTY;
 }
 
 static const char lookup_sequence(struct sequence s) {
-	struct morse buffer;
+	struct sequence buffer;
 	for (int i=0; i<ELEMS(codes); i++) {
-		memcpy_P( &buffer, &codes[i], sizeof(struct morse) );
-		if (buffer.seq.length == s.length && buffer.seq.code == s.code) {
-			return buffer.letter;
+		memcpy_P( &buffer, &codes[i], sizeof(struct sequence) );
+		if (buffer.length == s.length && buffer.code == s.code) {
+			return (char)(i+'!');
 		}
 	}
 	return 0;
