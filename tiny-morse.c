@@ -64,6 +64,17 @@ static const struct sequence lookup_char(char c) {
 	return CODE_EMPTY;
 }
 
+static const char lookup_sequence(struct sequence s) {
+	struct morse buffer;
+	for (int i=0; i<ELEMS(codes); i++) {
+		memcpy_P( &buffer, &codes[i], sizeof(struct morse) );
+		if (buffer.seq.length == s.length && buffer.seq.code == s.code) {
+			return buffer.letter;
+		}
+	}
+	return 0;
+}
+
 static void morse_sequence(struct sequence s) {
 	uint8_t l = s.length;
 	while (l > 0) {
