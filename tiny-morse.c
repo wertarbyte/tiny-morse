@@ -215,7 +215,7 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 		}
 	} else {
 		// the paddle is pressed again, ending a pause. How long was it?
-		if (duration > (PAUSE_SYMBOL+2*PAUSE_LETTER)/3 && recv_buffer.symbols.length > 0) {
+		if (duration >= PAUSE_LETTER && recv_buffer.symbols.length > 0) {
 			// a new letter has been started, flush the buffer
 			// and transform the read symbols into a letter
 			char l = lookup_sequence(recv_buffer.symbols);
