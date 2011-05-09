@@ -20,7 +20,9 @@
 #define PADDLE_BIT PB4
 
 #define EEPROM_LOC_USE_PREAMBLE	0
-#define EEPROM_LOC_MSG 1
+#define EEPROM_LOC_PASSWORD (EEPROM_LOC_USE_PREAMBLE+1)
+#define EEPROM_LEN_PASSWORD 8
+#define EEPROM_LOC_MSG (EEPROM_LOC_PASSWORD+EEPROM_LEN_PASSWORD)
 
 #define ELEMS(x) (sizeof(x)/sizeof((x)[0]))
 
@@ -44,7 +46,6 @@ static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
 #define PAUSE_LETTER TIME_DAH
 #define PAUSE_WORD (TIME_DIT*7)
 
-
 static volatile struct {
 	volatile uint8_t time_cs; // centi-seconds (0.01s)
 } clock = { 0 };
@@ -54,6 +55,17 @@ static struct {
 	char letters[8];
 } recv_buffer = {{0,0}, {0}};
 
+
+static struct {
+	uint8_t progress;
+} password = {0};
+
+enum pwstate {
+	PW_ACCEPTED,
+	PW_REJECTED,
+	PW_PENDING,
+};
+
 static void wait(uint8_t cs) {
 	while (cs--) _delay_ms(10);
 }
@@ -62,6 +74,25 @@ static void flash(uint8_t cs) {
 	LED_OUT |= (1<<LED_BIT);
 	wait(cs);
 	LED_OUT &= ~(1<<LED_BIT);
+}
+
+static enum pwstate check_pw_char(char c) {
+	char p = eeprom_read_byte( password.progress + EEPROM_LOC_PASSWORD );
+	if (c == ' ') {
+		// ignore spaces
+		return PW_PENDING;
+	} else if (c == p) {
+		password.progress++;
+		if (password.progress == EEPROM_LEN_PASSWORD-1 ||
+			eeprom_read_byte( password.progress + EEPROM_LOC_PASSWORD ) == ' ') {
+			return PW_ACCEPTED;
+		} else {
+			return PW_PENDING;
+		}
+	} else {
+		password.progress = 0;
+		return PW_REJECTED;
+	}
 }
 
 static const struct sequence lookup_char(char c) {
@@ -151,6 +182,15 @@ static void append_letter(char l) {
 	*(ptr+1) = 0;
 }
 
+static void received_letter(char l) {
+	//append_letter(l);
+	// do not pass spaces to the password checker
+	//if (l != ' ' && check_pw_char(l) == PW_ACCEPTED) {
+	if (check_pw_char(l) == PW_ACCEPTED) {
+		morse();
+	}
+}
+
 static void process_buffer(uint8_t paddle_was_pressed) {
 	// a paddle state just ended, let's see what
 	// we can make of that...
@@ -170,13 +210,13 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 			// and transform the read symbols into a letter
 			char l = lookup_sequence(recv_buffer.symbols);
 			if (l) {
-				append_letter(l);
+				received_letter(l);
 			}
 			recv_buffer.symbols.code = 0;
 			recv_buffer.symbols.length = 0;
 		}
 		if (duration > (PAUSE_LETTER+PAUSE_WORD)/2 && recv_buffer.letters[0]) {
-			append_letter(' ');
+			received_letter(' ');
 		}
 	}
 }
@@ -189,8 +229,11 @@ static void receiver_timeout(void) {
 	// process any tokens left
 	process_buffer(0);
 	// morse back the sequence
-	morse_string(recv_buffer.letters);
+	//morse_string(recv_buffer.letters);
+	// clear buffer
 	recv_buffer.letters[0] = 0;
+	// reset password checker
+	password.progress = 0;
 }
 
 int main(void) {
