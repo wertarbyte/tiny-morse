@@ -52,9 +52,12 @@ static volatile struct {
 
 static struct {
 	struct sequence symbols;
+#if LETTER_BUFFER
 	char letters[8];
 } recv_buffer = {{0,0}, {0}};
-
+#else
+} recv_buffer = {{0,0}};
+#endif
 
 static struct {
 	uint8_t progress;
@@ -175,18 +178,22 @@ static void morse(void) {
 	}
 }
 
+#if LETTER_BUFFER
 static void append_letter(char l) {
 	char *ptr = recv_buffer.letters;
 	while (*ptr) ptr++;
 	*ptr = l;
 	*(ptr+1) = 0;
 }
+#endif
 
 static void received_letter(char l) {
-	//append_letter(l);
+#if LETTER_BUFFER
+	append_letter(l);
+#endif
 	// do not pass spaces to the password checker
-	//if (l != ' ' && check_pw_char(l) == PW_ACCEPTED) {
-	if (check_pw_char(l) == PW_ACCEPTED) {
+	enum pwstate s = check_pw_char(l);
+	if ( s == PW_ACCEPTED) {
 		morse();
 	}
 }
@@ -215,23 +222,34 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 			recv_buffer.symbols.code = 0;
 			recv_buffer.symbols.length = 0;
 		}
-		if (duration > (PAUSE_LETTER+PAUSE_WORD)/2 && recv_buffer.letters[0]) {
+		if (duration > (PAUSE_LETTER+PAUSE_WORD)/2
+#if LETTER_BUFFER
+				&& recv_buffer.letters[0]
+#endif
+		) {
 			received_letter(' ');
 		}
 	}
 }
 
 static uint8_t buffer_filled(void) {
-	return (recv_buffer.letters[0] || recv_buffer.symbols.length);
+	return (
+#if LETTER_BUFFER
+		recv_buffer.letters[0] ||
+#endif
+		recv_buffer.symbols.length
+	);
 }
 
 static void receiver_timeout(void) {
 	// process any tokens left
 	process_buffer(0);
+#if LETTER_BUFFER
 	// morse back the sequence
-	//morse_string(recv_buffer.letters);
+	morse_string(recv_buffer.letters);
 	// clear buffer
 	recv_buffer.letters[0] = 0;
+#endif
 	// reset password checker
 	password.progress = 0;
 }
