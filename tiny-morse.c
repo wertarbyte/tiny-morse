@@ -158,7 +158,7 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 	if (paddle_was_pressed) {
 		recv_buffer.symbols.code <<= 1;
 		recv_buffer.symbols.length++;
-		if (duration >= TIME_DAH) {
+		if (duration > (TIME_DAH+TIME_DIT)/2 ) {
 			// add a DAH symbol to the receive buffer
 		} else {
 			// add a DIT symbol
@@ -166,7 +166,7 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 		}
 	} else {
 		// the paddle is pressed again, ending a pause. How long was it?
-		if (duration >= PAUSE_LETTER && recv_buffer.symbols.length > 0) {
+		if (duration > (PAUSE_SYMBOL+PAUSE_LETTER)/2 && recv_buffer.symbols.length > 0) {
 			// a new letter has been started, flush the buffer
 			// and transform the read symbols into a letter
 			char l = lookup_sequence(recv_buffer.symbols);
