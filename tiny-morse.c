@@ -34,8 +34,8 @@ struct sequence {
 };
 
 static const struct sequence CODE_EMPTY    = { 0, 0 };
-static const struct sequence CODE_STARTMSG = { 5, 0b10101 };
-static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
+static const struct sequence CODE_STARTMSG = { 5, 0b01010 };
+static const struct sequence CODE_ENDMSG   = { 5, 0b10101 };
 static const struct sequence CODE_EOC      = { 6, 0b111010 };
 
 #include "codes.h"
