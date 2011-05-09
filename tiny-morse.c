@@ -1,17 +1,22 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/eeprom.h>
+#include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
 #define MORSE_CLOCK_MS 250
 
 #define LED_DDR	DDRB
-#define LED_PORT PORTB
+#define LED_OUT PORTB
 #define LED_BIT	PB3
 
 #define TRIGGER_DDR DDRB
-#define TRIGGER_PORT PINB
+#define TRIGGER_IN PINB
 #define TRIGGER_BIT PB0
+
+#define PADDLE_DDR DDRB
+#define PADDLE_IN PINB
+#define PADDLE_BIT PB4
 
 #define EEPROM_LOC_USE_PREAMBLE	0
 #define EEPROM_LOC_MSG 1
@@ -20,9 +25,9 @@
 
 struct sequence {
 	// number of morse code symbols
-	const uint8_t length;
+	uint8_t length;
 	// bitmask of the code, 1=DIT, 0=DAH
-	const uint8_t code;
+	uint8_t code;
 };
 
 static const struct sequence CODE_EMPTY    = { 0, 0 };
@@ -38,14 +43,24 @@ static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
 #define PAUSE_LETTER TIME_DAH
 #define PAUSE_WORD (TIME_DIT*7)
 
+
+static volatile struct {
+	volatile unsigned long time_ms;
+} clock = { 0 };
+
+static struct {
+	struct sequence symbols;
+	char letters[8];
+} recv_buffer = {{0,0}, {0}};
+
 static void wait(int ms) {
 	while (ms--) _delay_ms(1);
 }
 
 static void flash(unsigned int ms) {
-	LED_PORT |= (1<<LED_BIT);
+	LED_OUT |= (1<<LED_BIT);
 	wait(ms);
-	LED_PORT &= ~(1<<LED_BIT);
+	LED_OUT &= ~(1<<LED_BIT);
 }
 
 static const struct sequence lookup_char(char c) {
@@ -128,14 +143,97 @@ static void morse(void) {
 	}
 }
 
-int main(void) {
-	LED_DDR |= 1<<LED_BIT;
-	TRIGGER_DDR |= 1<<TRIGGER_BIT;
+static void append_letter(char l) {
+	char *ptr = recv_buffer.letters;
+	while (*ptr) ptr++;
+	*ptr = l;
+	*(ptr+1) = 0;
+}
 
+static void process_buffer(uint8_t paddle_was_pressed) {
+	// a paddle state just ended, let's see what
+	// we can make of that...
+	unsigned long duration = clock.time_ms;
+	clock.time_ms = 0;
+	if (paddle_was_pressed) {
+		recv_buffer.symbols.code <<= 1;
+		recv_buffer.symbols.length++;
+		if (duration >= TIME_DAH) {
+			// add a DAH symbol to the receive buffer
+		} else {
+			// add a DIT symbol
+			recv_buffer.symbols.code |= 1;
+		}
+	} else {
+		// the paddle is pressed again, ending a pause. How long was it?
+		if (duration >= PAUSE_LETTER && recv_buffer.symbols.length > 0) {
+			// a new letter has been started, flush the buffer
+			// and transform the read symbols into a letter
+			char l = lookup_sequence(recv_buffer.symbols);
+			if (l) {
+				append_letter(l);
+			}
+			recv_buffer.symbols.code = 0;
+			recv_buffer.symbols.length = 0;
+		}
+		if (duration >= PAUSE_WORD && recv_buffer.letters[0]) {
+			append_letter(' ');
+		}
+	}
+}
+
+static uint8_t buffer_filled(void) {
+	return (recv_buffer.letters[0] || recv_buffer.symbols.length);
+}
+
+static void receiver_timeout(void) {
+	// process any tokens left
+	process_buffer(0);
+	// morse back the sequence
+	morse_string(recv_buffer.letters);
+	recv_buffer.letters[0] = 0;
+}
+
+int main(void) {
+	LED_DDR |= (1<<LED_BIT);
+	TRIGGER_DDR &= ~(1<<TRIGGER_BIT);
+	PADDLE_DDR &= ~(1<<PADDLE_BIT);
+
+	// configure TIMER1 with /1 prescaler and increment timer_ms every 5 overflows (-> ~0.001s)
+	TCCR0B |= (1<<CS00);
+	TIMSK0 |= (1<<TOIE0);
+
+	sei();
+
+	uint8_t paddle_state = 0;
 	while(1) {
-		if (TRIGGER_PORT & 1<<TRIGGER_BIT) {
+		/*
+		if (TRIGGER_IN & 1<<TRIGGER_BIT) {
 			morse();
+		}
+		*/
+		uint8_t paddle_now = (PADDLE_IN & 1<<PADDLE_BIT);
+		if (paddle_now != paddle_state) {
+			// paddle state has just changed
+			wait(3); // debounce the simple way
+			// handle tokens stored in buffer
+			process_buffer(paddle_state);
+		}
+		paddle_state = paddle_now;
+		// receiver timeout
+		if (clock.time_ms > 10*(MORSE_CLOCK_MS) && buffer_filled()) {
+			receiver_timeout();
+			clock.time_ms = 0;
 		}
 	}
 	return 0;
 }
+
+SIGNAL(TIM0_OVF_vect) {
+	static uint8_t overflows = 5;
+	if (overflows-- == 0) {
+		clock.time_ms++;
+		overflows = 5;
+	}
+}
+
