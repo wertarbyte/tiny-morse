@@ -36,6 +36,7 @@ struct sequence {
 static const struct sequence CODE_EMPTY    = { 0, 0 };
 static const struct sequence CODE_STARTMSG = { 5, 0b10101 };
 static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
+static const struct sequence CODE_EOC      = { 6, 0b111010 };
 
 #include "codes.h"
 
@@ -195,6 +196,8 @@ static void received_letter(char l) {
 	enum pwstate s = check_pw_char(l);
 	if ( s == PW_ACCEPTED) {
 		morse();
+	} else if ( s == PW_REJECTED) {
+		morse_sequence( CODE_EOC );
 	}
 }
 
