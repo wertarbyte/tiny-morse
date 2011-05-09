@@ -4,7 +4,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
-#define MORSE_CLOCK_MS 250
+#define MORSE_CLOCK_MS 150
 
 #define LED_DDR	DDRB
 #define LED_OUT PORTB
