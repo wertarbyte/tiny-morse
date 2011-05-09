@@ -77,14 +77,14 @@ static void flash(uint8_t cs) {
 }
 
 static enum pwstate check_pw_char(char c) {
-	char p = eeprom_read_byte( password.progress + EEPROM_LOC_PASSWORD );
+	char p = eeprom_read_byte( (uint8_t*)(password.progress + EEPROM_LOC_PASSWORD) );
 	if (c == ' ') {
 		// ignore spaces
 		return PW_PENDING;
 	} else if (c == p) {
 		password.progress++;
 		if (password.progress == EEPROM_LEN_PASSWORD-1 ||
-			eeprom_read_byte( password.progress + EEPROM_LOC_PASSWORD ) == ' ') {
+			eeprom_read_byte( (uint8_t*) (password.progress + EEPROM_LOC_PASSWORD) ) == ' ') {
 			return PW_ACCEPTED;
 		} else {
 			return PW_PENDING;
@@ -149,8 +149,8 @@ static void morse_string(const char *str) {
 static void morse_eeprom(void) {
 	uint8_t *i = (uint8_t*) EEPROM_LOC_MSG;
 	char m = 0;
-	while ( (m = eeprom_read_byte(i++)) != 0 ) {
-		if (m == '\n') break;
+	// unwritten memory has the value 0xFF
+	while ( (m = eeprom_read_byte(i++)) != 0xFF ) {
 		morse_char(m);
 		wait(PAUSE_LETTER);
 	}
