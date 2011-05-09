@@ -5,6 +5,7 @@
 #include <avr/pgmspace.h>
 
 #define MORSE_CLOCK_MS 150
+#define MORSE_CLOCK_CS (MORSE_CLOCK_MS/10)
 
 #define LED_DDR	DDRB
 #define LED_OUT PORTB
@@ -37,7 +38,7 @@ static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
 #include "codes.h"
 
 // morse code durations
-#define TIME_DIT MORSE_CLOCK_MS
+#define TIME_DIT MORSE_CLOCK_CS
 #define TIME_DAH (TIME_DIT*3)
 #define PAUSE_SYMBOL TIME_DIT
 #define PAUSE_LETTER TIME_DAH
@@ -45,7 +46,7 @@ static const struct sequence CODE_ENDMSG   = { 5, 0b01010 };
 
 
 static volatile struct {
-	volatile unsigned long time_ms;
+	volatile uint8_t time_cs; // centi-seconds (0.01s)
 } clock = { 0 };
 
 static struct {
@@ -53,13 +54,13 @@ static struct {
 	char letters[8];
 } recv_buffer = {{0,0}, {0}};
 
-static void wait(int ms) {
-	while (ms--) _delay_ms(1);
+static void wait(uint8_t cs) {
+	while (cs--) _delay_ms(10);
 }
 
-static void flash(unsigned int ms) {
+static void flash(uint8_t cs) {
 	LED_OUT |= (1<<LED_BIT);
-	wait(ms);
+	wait(cs);
 	LED_OUT &= ~(1<<LED_BIT);
 }
 
@@ -153,14 +154,12 @@ static void append_letter(char l) {
 static void process_buffer(uint8_t paddle_was_pressed) {
 	// a paddle state just ended, let's see what
 	// we can make of that...
-	unsigned long duration = clock.time_ms;
-	clock.time_ms = 0;
+	uint8_t duration = clock.time_cs;
+	clock.time_cs = 0;
 	if (paddle_was_pressed) {
 		recv_buffer.symbols.code <<= 1;
 		recv_buffer.symbols.length++;
-		if (duration > (TIME_DAH+TIME_DIT)/2 ) {
-			// add a DAH symbol to the receive buffer
-		} else {
+		if (duration < (TIME_DAH+TIME_DIT)/2 ) {
 			// add a DIT symbol
 			recv_buffer.symbols.code |= 1;
 		}
@@ -176,7 +175,7 @@ static void process_buffer(uint8_t paddle_was_pressed) {
 			recv_buffer.symbols.code = 0;
 			recv_buffer.symbols.length = 0;
 		}
-		if (duration >= PAUSE_WORD && recv_buffer.letters[0]) {
+		if (duration > (PAUSE_LETTER+PAUSE_WORD)/2 && recv_buffer.letters[0]) {
 			append_letter(' ');
 		}
 	}
@@ -199,7 +198,7 @@ int main(void) {
 	TRIGGER_DDR &= ~(1<<TRIGGER_BIT);
 	PADDLE_DDR &= ~(1<<PADDLE_BIT);
 
-	// configure TIMER1 with /1 prescaler and increment timer_ms every 5 overflows (-> ~0.001s)
+	// configure TIMER1 with /1 prescaler and increment timer_cs every 40 overflows (-> ~0.01s)
 	TCCR0B |= (1<<CS00);
 	TIMSK0 |= (1<<TOIE0);
 
@@ -207,33 +206,31 @@ int main(void) {
 
 	uint8_t paddle_state = 0;
 	while(1) {
-		/*
 		if (TRIGGER_IN & 1<<TRIGGER_BIT) {
 			morse();
 		}
-		*/
 		uint8_t paddle_now = (PADDLE_IN & 1<<PADDLE_BIT);
 		if (paddle_now != paddle_state) {
 			// paddle state has just changed
-			wait(3); // debounce the simple way
+			_delay_ms(3); // debounce the simple way
 			// handle tokens stored in buffer
 			process_buffer(paddle_state);
 		}
 		paddle_state = paddle_now;
 		// receiver timeout
-		if (clock.time_ms > 10*(MORSE_CLOCK_MS) && buffer_filled()) {
+		if (clock.time_cs > 10*(MORSE_CLOCK_CS) && buffer_filled()) {
 			receiver_timeout();
-			clock.time_ms = 0;
+			clock.time_cs = 0;
 		}
 	}
 	return 0;
 }
 
 SIGNAL(TIM0_OVF_vect) {
-	static uint8_t overflows = 5;
+	static uint8_t overflows = 40;
 	if (overflows-- == 0) {
-		clock.time_ms++;
-		overflows = 5;
+		clock.time_cs++;
+		overflows = 40;
 	}
 }
 
