@@ -282,7 +282,7 @@ int main(void) {
 		}
 		paddle_state = paddle_now;
 		// receiver timeout
-		if (clock.time_cs > 10*(MORSE_CLOCK_CS) && buffer_filled()) {
+		if (!paddle_now && clock.time_cs > 250 && buffer_filled()) {
 			receiver_timeout();
 			clock.time_cs = 0;
 		}
@@ -293,7 +293,8 @@ int main(void) {
 SIGNAL(TIM0_OVF_vect) {
 	static uint8_t overflows = 40;
 	if (overflows-- == 0) {
-		clock.time_cs++;
+		if (clock.time_cs < UINT8_MAX)
+			clock.time_cs++;
 		overflows = 40;
 	}
 }
