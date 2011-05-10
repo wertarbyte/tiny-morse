@@ -101,7 +101,7 @@ static enum pwstate check_pw_char(char c) {
 
 static const struct sequence lookup_char(char c) {
 	struct sequence buffer;
-	int i = c-'!';
+	uint8_t i = c-'!';
 	if (i < ELEMS(codes)) {
 		memcpy_P( &buffer, &codes[i], sizeof(struct sequence) );
 		return buffer;
@@ -111,7 +111,7 @@ static const struct sequence lookup_char(char c) {
 
 static const char lookup_sequence(struct sequence s) {
 	struct sequence buffer;
-	for (int i=0; i<ELEMS(codes); i++) {
+	for (uint8_t i=0; i<ELEMS(codes); i++) {
 		memcpy_P( &buffer, &codes[i], sizeof(struct sequence) );
 		if (buffer.length == s.length && buffer.code == s.code) {
 			return (char)(i+'!');
