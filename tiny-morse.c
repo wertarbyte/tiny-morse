@@ -12,11 +12,13 @@
 #define LED_BIT	PB3
 
 #define TRIGGER_DDR DDRB
+#define TRIGGER_PORT PORTB
 #define TRIGGER_IN PINB
 #define TRIGGER_BIT PB0
 
 #define PADDLE_DDR DDRB
 #define PADDLE_IN PINB
+#define PADDLE_PORT PORTB
 #define PADDLE_BIT PB4
 
 #define EEPROM_LOC_USE_PREAMBLE	0
@@ -260,7 +262,9 @@ static void receiver_timeout(void) {
 int main(void) {
 	LED_DDR |= (1<<LED_BIT);
 	TRIGGER_DDR &= ~(1<<TRIGGER_BIT);
+	TRIGGER_PORT |= 1<<TRIGGER_BIT; // enable pull-up
 	PADDLE_DDR &= ~(1<<PADDLE_BIT);
+	PADDLE_PORT |= 1<<PADDLE_BIT; // enable pull-up
 
 	// configure TIMER1 with /1 prescaler and increment timer_cs every 40 overflows (-> ~0.01s)
 	TCCR0B |= (1<<CS00);
@@ -270,10 +274,10 @@ int main(void) {
 
 	uint8_t paddle_state = 0;
 	while(1) {
-		if (TRIGGER_IN & 1<<TRIGGER_BIT) {
+		if (~TRIGGER_IN & 1<<TRIGGER_BIT) {
 			morse();
 		}
-		uint8_t paddle_now = (PADDLE_IN & 1<<PADDLE_BIT);
+		uint8_t paddle_now = (~PADDLE_IN & 1<<PADDLE_BIT);
 		if (paddle_now != paddle_state) {
 			// paddle state has just changed
 			_delay_ms(3); // debounce the simple way
